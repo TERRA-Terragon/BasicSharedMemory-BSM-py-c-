@@ -1,5 +1,5 @@
 # BasicSharedMemory-BSM-py-c-
-ENG
+#ENG
 A module that allows you to automate and simplify data serialization.
-RUS
+#RUS
 Модуль , позволяющий автоматизировать и облегчить доступ к сериализации данных .
