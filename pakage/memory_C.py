@@ -8,6 +8,7 @@ from ctypes import wintypes
 from ctypes import c_char_p, c_char
 import os
 import sys
+from typing import Union
 
 import psutil
 import os
@@ -16,6 +17,7 @@ import json
 TempR={bool:"#b",int:"#i",str:"#s",float:"#f",list:"#ar",dict:"#d"}
 debug_mode = False
 memory = []
+copy_vars =[]
 
 FILE_MAP_READ = 0x0004
 FILE_MAP_WRITE = 0x0002
@@ -23,6 +25,30 @@ FILE_MAP_ALL_ACCESS = 0x000F
 PAGE_READWRITE = 0x04
 INVALID_HANDLE_VALUE = -1
 
+class tp(): #TYPE VAR
+    def __init__(self,_type,_data,_str_type):
+        """For quick information retrieval and type conversion"""
+        self._data_ = _data
+        self._type_ = _type
+        self._str_type_= _str_type
+    def get_info(self):
+        return list(self._type_,self._data_,self._str_type_)
+def typ(f:str) -> Union[str, int, float, bool, list, dict]:
+    if "#b" in f:
+        return bool
+    elif "#i" in f:
+        return int
+    elif "#s" in f:
+        return str
+    elif "#f" in f:
+        return float
+    elif "#ar" in f:
+        return list
+    elif "#d" in f:
+        return dict
+    else:
+        print(f"Unknown data type")
+        return None
 def cut_size(a:str)->int:
     if not a or a[0] != '#':
         return 0
@@ -42,6 +68,9 @@ def convetrer_type(data):
     if not("#"in data):
         return f"{intedificator(data)} {data}"
     return data
+def give_type(T:str):
+    return TempR.get(T,None)
+
 def StateChek(a:str)-> bool:
     if(debug_mode==True):
         print(f"Значение чтения:{a}")
@@ -87,10 +116,11 @@ def read_shared_memory_fixed(name_process : str,Mreturn:bool):
             print(f"Данные из памяти: {name_process} {hex(pData)} {data_str[cut_size(data_str)::]}")
     elif(data_str!=None):
         return data_str
-
+    last_data = data_str[cut_size(data_str)::]
     # Очистка
-    # kernel32.UnmapViewOfFile(pData)
-    # kernel32.CloseHandle(hMemory)
+    kernel32.UnmapViewOfFile(pData)
+    kernel32.CloseHandle(hMemory)
+    return last_data
     #Для закрытее общей памяти
 #
 # def close_mem():
@@ -124,19 +154,19 @@ def write_shared_memory_fixed(name_process: str, data):
         return False
 
     try:
-        # ПРАВИЛЬНЫЙ вызов MapViewOfFile
+        #вызов MapViewOfFile
         pData = kernel32.MapViewOfFile(hMemory, FILE_MAP_ALL_ACCESS, 0, 0, 256)
         if not pData:
             error_code = ctypes.get_last_error()
             print(f"Ошибка отображения памяти: код {error_code}")
             return False
 
-        # Подготавливаем данные
+        #Подготавливаем данные
         if not isinstance(data, str):
             data = str(data)
 
 
-        # Создаем буфер и записываем
+        #Создаем буфер и записываем
         buffer = ctypes.create_string_buffer(data.encode('utf-8'), 256)
         ctypes.memmove(pData, buffer, 256)
         if (debug_mode == True):
@@ -153,7 +183,7 @@ def write_shared_memory_fixed(name_process: str, data):
 #     print("Перезапустите скрипт с правами администратора!")
 #     sys.exit(1)
 class mem():
-    def __init__(self,DM:bool,PROCESS_NAME:str,DAT:str):
+    def __init__(self,DM:bool,PROCESS_NAME:str,DAT: Union[str, int, float, bool, list, dict]):
         self.STATE= True
         if PROCESS_NAME==None and DAT==None:
             self.PROCESS_NAME = "Game1"
@@ -164,12 +194,32 @@ class mem():
         self.PROCESS = None
         self.MEM_INFO = None
         self.debug_mode= DM
+        self.READ_DATA =None
         global debug_mode
         debug_mode = self.debug_mode
 
+    def stop(self):
+        try:
+            return False
+        except Exception() as e:
+            print(e)
     def start(self):
         """The method creates a process
 And displays how much memory is used"""
+        try:
+            property = open("porperty.txt","r+")
+            if(property.read()!=None):
+                Exception
+            else:
+                global debug_mode
+                debug_mode = bool(property.read())
+        except Exception as e:
+            print(f"Error:{e}")
+            property = open("porperty.txt", "w+")
+            property.write(True)
+            property.close()
+        else:
+            debug_mode == property.read()
         if(debug_mode==True):
             print("Режим отладки")
         self.DAT = convetrer_type(self.DAT)
@@ -184,6 +234,7 @@ need parameter for changing, if True, then the value changes
 data is the value of the variable"""
         self.DAT = convetrer_type(data)
         self.STATE = StateChek(read_shared_memory_fixed(self.PROCESS_NAME[:-1],True))
+        self.stop()
     def work(self):
         """The main work cycle"""
         try:
@@ -193,10 +244,26 @@ data is the value of the variable"""
                 self.rewrite(f"{self.DAT}"+"2",
                              self.PROCESS_NAME)
                 write_shared_memory_fixed(self.PROCESS_NAME,self.DAT)
-                read_shared_memory_fixed(f"{self.PROCESS_NAME}"[:-1],False)
+                print(read_shared_memory_fixed(f"{self.PROCESS_NAME}"[:-1],False))
                 time.sleep(2)
+                if self.stop():
+                    break
         except Exception as e:
             print(e)
-        write_shared_memory_fixed(self.PROCESS_NAME, "|")
-        time.sleep(2)
-        print("Прекращение работы")
+
+    def call(self):
+        try:
+            if (debug_mode == True):
+                print(f"Используется памяти: {self.MEM_INFO.rss / 1024 / 1024:.2f} MB")
+            self.rewrite(f"{self.DAT}" + "2",
+                            self.PROCESS_NAME)
+            write_shared_memory_fixed(self.PROCESS_NAME, self.DAT)
+            print(read_shared_memory_fixed(f"{self.PROCESS_NAME}"[:-1], False))
+            time.sleep(2)
+        except Exception as e:
+            print(e)
+
+        # write_shared_memory_fixed(self.PROCESS_NAME, "|")
+    def stop(self):
+        copy_vars.clear()
+        memory.clear()
