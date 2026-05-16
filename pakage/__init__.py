@@ -24,10 +24,16 @@ __________               .__         _________.__                             ._
 print(f"{a}\n{__version__}")
 
 from memory_C import *
-
+# from memory_C import SharedMemory
+# mem = SharedMemory("Game1",255)
+# mem.create()
+# mem.write("Hello From PYthon")
+# mem2 = SharedMemory("Game", 256)
+# mem2.open()
+# mem2.read()
 a =mem(True,None,None)
 a.start()
-# print(a.start.__doc__)
-# a.work()
-a.call()
+print(a.start.__doc__)
+a.work()
+# a.call()
 # print(str(typ("#f 1234")))
