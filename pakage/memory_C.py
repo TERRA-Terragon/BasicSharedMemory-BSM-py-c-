@@ -16,7 +16,7 @@ import psutil
 import os
 import json
 
-TempR={bool:"#b",int:"#i",str:"#s",float:"#f",list:"#ar",dict:"#d"}
+TempR={bool:"#b",int:"#i",str:"#s",float:"#f",list:"#ar",dict:"#d",tuple:"#t"}
 debug_mode = False
 memory = []
 copy_vars =[]
@@ -42,17 +42,17 @@ class tp(): #TYPE VAR
         return list(self._type_,self._data_,self._str_type_)
 def typ(f:str) -> Union[str, int, float, bool, list, dict]:
     if "#b" in f:
-        return bool
+        return bool()
     elif "#i" in f:
-        return int
+        return int()
     elif "#s" in f:
-        return str
+        return str()
     elif "#f" in f:
-        return float
-    elif "#ar" in f:
-        return list
+        return float()
+    elif "#ar" in f and "[" in f and "]" in f:
+        return list()
     elif "#d" in f:
-        return dict
+        return dict()
     else:
         print(f"Unknown data type")
         return None
@@ -66,16 +66,19 @@ def cut_size(a:str)->int:
     elif len(a) >= 2 and a[1] in ['b', 'i', 's', 'f']:
         return 2  # '#b', '#i', '#s', '#f' - 2 символа
 
-def intedificator(T:str) -> str:
+def intedificator(T) -> str:
     index =""
-    for i in TempR:
-        index = TempR[type(T)]
-    return index
+    try:
+        for i in TempR:
+            index = TempR[type(T)]
+        return index
+    except:
+        return "None"
 def convetrer_type(data):
-    print("КОНВЕРТ")
-    if not("#"in data):
-        return f"{intedificator(data)} {data}"
-    return data
+    index = intedificator(data)
+    return f"{index} {data}"
+
+
 def give_type(T:str):
     return TempR.get(T,None)
 
@@ -99,7 +102,6 @@ def run_as_admin():
     )
     return False
 def read_shared_memory_fixed(name_process : str,Mreturn:bool):
-    print("READFIXED")
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
     kernel32.OpenFileMappingW.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR]
     kernel32.OpenFileMappingW.restype = wintypes.HANDLE
@@ -122,21 +124,21 @@ def read_shared_memory_fixed(name_process : str,Mreturn:bool):
     data_str = data_bytes.decode('utf-8', errors='ignore')
     if(Mreturn!=True and data_str!=None):
         if (debug_mode == True):
-            print(f"Данные из памяти: {name_process} {hex(pData)} {data_str[cut_size(data_str)::]}")
+            print(f"Данные:{name_process} {hex(pData)} {data_str[cut_size(data_str)::]}")
     elif(data_str!=None):
         return data_str
-    last_data = data_str[cut_size(data_str)::]
-    # Очистка
+    last_data = data_str
+    # last_data = data_str[cut_size(data_str)::] #если нужно получить без спецификатора
+    # Очистка и полное закрытие
     # kernel32.UnmapViewOfFile(pData)
     # kernel32.CloseHandle(hMemory)
     return last_data
     #Для закрытее общей памяти
 #
-# def close_mem():
+# def close_mem(name:str):
 #     kernel32.UnmapViewOfFile(pData)
 #     kernel32.CloseHandle(hMemory)
 def write_shared_memory_fixed(name_process: str, data):
-    print("WRITEFIXED")
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
     # Настройка функций CreateFileMapping - УПРОЩЕННАЯ ВЕРСИЯ
     kernel32.CreateFileMappingW.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
@@ -170,8 +172,6 @@ def write_shared_memory_fixed(name_process: str, data):
             error_code = ctypes.get_last_error()
             print(f"Ошибка отображения памяти: код {error_code}")
             return False
-
-        #Подготавливаем данные
         if not isinstance(data, str):
             data = str(data)
 
@@ -179,7 +179,7 @@ def write_shared_memory_fixed(name_process: str, data):
         buffer = ctypes.create_string_buffer(data.encode('utf-8'), 256)
         ctypes.memmove(pData, buffer, 256)
         if (debug_mode == True):
-            print(f"Данные ({data}) успешно записаны в '{name_process}'")
+            print(f"Данные:({data})->'{name_process}'")
         return True
 
     except Exception as e:
@@ -215,59 +215,20 @@ class mem():
         self.MEM_INFO = None
         self.debug_mode= DM
         self.READ_DATA =None
+        self.split_list_mode=False
         global debug_mode
         debug_mode = self.debug_mode
     def give_var(self,data:str):
-        if not data or not isinstance(data, str):
-            return None
-
-        temp = data.strip()
-
-        if temp.startswith("#b"):
-            value = temp[2:].strip().lower()
-            return value in ['true', '1', 'yes', 'on']
-
-        elif temp.startswith("#i"):
-            return int(temp[2:].strip())
-
-        elif temp.startswith("#s"):
-            value = temp[2:]
-            # Пробуем удалить кавычки
-            try:
-                return ast.literal_eval(value) if value.startswith(('"', "'")) else value
-            except:
-                return value
-
-        elif temp.startswith("#f"):
-            return float(temp[2:].strip())
-
-        elif temp.startswith("#ar"):
-            value = temp[3:].strip()
-            try:
-                # Используем ast.literal_eval для безопасного парсинга
-                return ast.literal_eval(value)
-            except:
-                print(f"Ошибка парсинга списка: {value}")
-                return []
-
-        elif temp.startswith("#d"):
-            value = temp[2:].strip()
-            try:
-                # Заменяем ' на " для json совместимости, если нужно
-                if "'" in value and '"' not in value:
-                    value = value.replace("'", '"')
-                return json.loads(value)
-            except:
-                try:
-                    return ast.literal_eval(value)
-                except:
-                    print(f"Ошибка парсинга словаря: {value}")
-                    return {}
-
-        else:
-            print(f"Неизвестный тип: {temp[:3]}")
-            return None
-
+        temp = data
+        if(temp.startswith("#s")):
+            temp=temp[2:]
+            return str(temp)
+        if(temp.startswith("#ar")):
+            temp=temp[3:]
+            if(temp.startswith("[") and temp.endwith("]")):
+                temp = f"{temp[1::-1].strip()}"
+                temp = temp.map(int).split(",")
+                return temp
 
     def give_all_shared_memory(self,t:bool)-> list:
         return descriptors
@@ -302,17 +263,35 @@ class mem():
         self.DAT = convetrer_type(data)
         self.STATE = StateChek(read_shared_memory_fixed(self.PROCESS_NAME[:-1],True))
         self.stop()
+    # def write(self,name:str,data):
+    #     write_shared_memory_fixed(name, data)
+    # def write(self,data):
+    #     write_shared_memory_fixed(self.PROCESS_NAME, convetrer_type(data))
+    def write(self, data,name=None):
+        if(name==None):
+            name =self.PROCESS_NAME
+        write_shared_memory_fixed(self.PROCESS_NAME, convetrer_type(data))
+
+    def write_list(self, data):
+        if self.split_list_mode:
+            for item in data:
+                formatted = convetrer_type(item)
+                write_shared_memory_fixed(self.PROCESS_NAME, formatted)
+        else:
+            formatted = convetrer_type(data)
+            write_shared_memory_fixed(self.PROCESS_NAME, formatted)
+
+        # for i in array:
+        #     write_shared_memory_fixed(self.PROCESS_NAME, convetrer_type(i))
     def work(self):
         """The main work cycle"""
         try:
             while self.STATE:
                 if (debug_mode == True):
                     print(f"Используется памяти: {self.MEM_INFO.rss / 1024 / 1024:.2f} MB")
-                self.rewrite(f"{self.DAT}"+"2",
-                             self.PROCESS_NAME)
+                self.rewrite(f"{self.DAT}"+"2",self.PROCESS_NAME)
                 write_shared_memory_fixed(self.PROCESS_NAME,self.DAT)
                 temp = read_shared_memory_fixed(f"{self.PROCESS_NAME}"[:-1],False)
-                print(temp)
                 if temp !=None:
                     print(type(self.give_var(temp)))
                 time.sleep(2)
@@ -320,18 +299,19 @@ class mem():
                     break
         except Exception as e:
             print(e)
-    def clear(self):
+    def claer(self):
+        print(f"Все дискрипторы:{descriptors}")
         for i in descriptors:
             ctypes.WinDLL('kernel32').CloseHandle(i)
+            print(f"{i} память была очищена")
         ctypes.WinDLL('kernel32').UnmapViewOfFile(MAPVIEW)
-    def call(self):
+    async def read(self,name=None):
+        if(name==None):
+            name=self.PROCESS_NAME
         try:
             if (debug_mode == True):
                 print(f"Используется памяти: {self.MEM_INFO.rss / 1024 / 1024:.2f} MB")
-            self.rewrite(f"{self.DAT}" + "2",
-                            self.PROCESS_NAME)
-            write_shared_memory_fixed(self.PROCESS_NAME, self.DAT)
-            print(read_shared_memory_fixed(f"{self.PROCESS_NAME}"[:-1], False))
+            print(read_shared_memory_fixed(f"{name}"[:-1], False))
             time.sleep(2)
         except Exception as e:
             print(e)
@@ -340,8 +320,71 @@ class mem():
     def stop(self):
         copy_vars.clear()
         memory.clear()
-
+    async def test(self):
+        print("Starts test:")
+        self.write(True)
+        self.write(1)
+        self.write(-10000000)
+        self.write(4.55555)
+        self.write({1: 2, 2: 3})
+        self.write("")
+        self.write(1, [1, 2, 3, 4, 5, 7])
+        self.write((1, 3, 4, 5, 6, 0, "1"))
+        self.write(["1", 4, 1.234, True])
+        await asyncio.sleep(0.1)
+        self.split_list_mode = False
+        self.write_list([1, 2, 3, 4, 5])
+        self.write_list([10, 20, 30])
+        self.write_list(["a", "b", "c"])
+        self.write_list([1.1, 2.2, 3.3])
+        self.write_list([True, False, True])
+        self.write_list([1, "two", 3.0, True])
+        self.write_list([])
+        await asyncio.sleep(0.1)
+        self.split_list_mode = True
+        self.write_list([100, 200, 300])
+        self.write_list(["x", "y", "z"])
+        self.write_list([1.5, 2.5, 3.5])
+        await asyncio.sleep(0.1)
+        self.split_list_mode = False
+        self.write({"name": "John", "age": 30})
+        self.write({"city": "Moscow", "year": 2024})
+        self.write({1: "one", 2: "two", 3: "three"})
+        self.write({"mixed": 42, "float": 3.14, "bool": True})
+        self.write({})
+        await asyncio.sleep(0.1)
+        self.write((1, 2, 3))
+        self.write(("a", "b", "c"))
+        self.write((1.1, 2.2, 3.3))
+        self.write((True, False, True))
+        self.write((1, "two", 3.0, False))
+        self.write(())
+        await asyncio.sleep(0.1)
+        self.write([1, [2, 3], 4])
+        self.write({"key": [1, 2, 3]})
+        self.write([{"a": 1}, {"b": 2}])
+        self.write({"list": [1, 2], "dict": {"x": 1}})
+        await asyncio.sleep(0.1)
+        self.write(0)
+        self.write(-0)
+        self.write(2 ** 31 - 1)
+        self.write(-2 ** 31)
+        self.write(1e-10)
+        self.write(1e10)
+        self.write(float('inf'))
+        self.write(float('-inf'))
+        self.write(float('nan'))
+    def start_test(self):
+        a =asyncio.create_task(self.test())
 a =mem(True,None,None)
 a.start()
 # print(a.start.__doc__)
-a.work()
+# a.work()
+a.start_test()
+
+
+while (True):
+    b= int(input("Введите 0 чтобы выйти :"))
+    if(b==0):
+        break
+a.claer()
