@@ -25,20 +25,20 @@ std::string srez(std::string c,int a) {
 std::string cup_size(char* a) {
     std::string res = std::string(a);
 
-    // Ищем первый пробел или конец после спецификатора
+    //ищем первый пробел или конец после спецификатора
     int start_pos = 0;
     if (res[0] == '#') {
         if (res[1] == 'a' && res[2] == 'r') {
-            start_pos = 3;  // Пропускаем "#ar"
+            start_pos = 3;  //пропускаем "#ar"
         }
         else if (res[1] == 'b' || res[1] == 'i' || res[1] == 's' || res[1] == 'f') {
-            start_pos = 2;  // Пропускаем "#b", "#i", "#s", "#f"
-            // Пропускаем пробел если есть
+            start_pos = 2;  //пропускаем "#b", "#i", "#s", "#f"
+            //пропускаем пробел если есть
             if (res[start_pos] == ' ') start_pos++;
         }
     }
 
-    // Возвращаем строку без спецификатора типа
+    //возвращаем строку без спецификатора типа
     return res.substr(start_pos);
 }
 template<typename T>
@@ -130,7 +130,7 @@ int main() {
 
     char* pData = (char*)MapViewOfFile(hMemory, FILE_MAP_ALL_ACCESS, 0, 0, 256);
 
-    // Явно очищаем память
+    //явно очищаем память
     ZeroMemory(pData, 256);
 
     std::string data = "123EX0";
@@ -140,8 +140,6 @@ int main() {
             data += '|';
         add_in_memory(pData, FinalPull(data));
         read_memory(1, L"Game1");
-        
-   
         Sleep(2000);
     }
 }
