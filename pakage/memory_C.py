@@ -10,7 +10,6 @@ import os
 import sys
 from typing import Union
 import ast
-import json
 
 import psutil
 import os
@@ -20,7 +19,7 @@ TempR={bool:"#b",int:"#i",str:"#s",float:"#f",list:"#ar",dict:"#d",tuple:"#t"}
 debug_mode = False
 memory = []
 copy_vars =[]
-descriptors=[]
+_descriptors_=[]
 MAPVIEW = None # видимость дискрипторов
 
 FILE_MAP_READ = 0x0004
@@ -34,7 +33,6 @@ INVALID_HANDLE_VALUE = -1
 
 class tp(): #TYPE VAR
     def __init__(self,_type,_data,_str_type):
-        """For quick information retrieval and type conversion"""
         self._data_ = _data
         self._type_ = _type
         self._str_type_= _str_type
@@ -107,19 +105,19 @@ def read_shared_memory_fixed(name_process : str,Mreturn:bool):
     kernel32.OpenFileMappingW.restype = wintypes.HANDLE
     kernel32.MapViewOfFile.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD, wintypes.DWORD, ctypes.c_size_t]
     kernel32.MapViewOfFile.restype = wintypes.LPVOID
-    # Открываем память
+    #открываем память
     hMemory = kernel32.OpenFileMappingW(FILE_MAP_READ, False, name_process)
     if not hMemory:
         print(f'{datetime.datetime.now().strftime("[%H:%M:%S] ")}Память пуста!')
         return
-    # Подключаем память Это и есть адрес(является указателем)
+    #подключаем память Это и есть адрес(является указателем)
     pData = kernel32.MapViewOfFile(hMemory, FILE_MAP_READ, 0, 0, 256)
 
-    # Создаем буфер и копируем данные
+    #создаем буфер и копируем данные
     buffer = ctypes.create_string_buffer(256)
     ctypes.memmove(buffer, pData, 256)
 
-    # Ищем нуль-терминатор
+    #ищем нуль-терминатор
     data_bytes = buffer.value.split(b'\x00')[0]
     data_str = data_bytes.decode('utf-8', errors='ignore')
     if(Mreturn!=True and data_str!=None):
@@ -129,18 +127,18 @@ def read_shared_memory_fixed(name_process : str,Mreturn:bool):
         return data_str
     last_data = data_str
     # last_data = data_str[cut_size(data_str)::] #если нужно получить без спецификатора
-    # Очистка и полное закрытие
+    #очистка и полное закрытие
     # kernel32.UnmapViewOfFile(pData)
     # kernel32.CloseHandle(hMemory)
     return last_data
-    #Для закрытее общей памяти
+    #для закрытее общей памяти
 #
 # def close_mem(name:str):
 #     kernel32.UnmapViewOfFile(pData)
 #     kernel32.CloseHandle(hMemory)
 def write_shared_memory_fixed(name_process: str, data):
     kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-    # Настройка функций CreateFileMapping - УПРОЩЕННАЯ ВЕРСИЯ
+    #настройка функций CreateFileMapping - УПРОЩЕННАЯ ВЕРСИЯ
     kernel32.CreateFileMappingW.argtypes = [wintypes.HANDLE, ctypes.c_void_p, wintypes.DWORD,
                                             wintypes.DWORD, wintypes.DWORD, wintypes.LPCWSTR]
     kernel32.CreateFileMappingW.restype = wintypes.HANDLE
@@ -148,21 +146,21 @@ def write_shared_memory_fixed(name_process: str, data):
     kernel32.MapViewOfFile.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD,
                                        wintypes.DWORD, ctypes.c_size_t]
     kernel32.MapViewOfFile.restype = wintypes.LPVOID
-    # Создаем разделяемую память
+    #создаем разделяемую память
     hMemory = kernel32.CreateFileMappingW(
-        INVALID_HANDLE_VALUE,  # Используем файл подкачки
-        None,  # Атрибуты безопасности по умолчанию (None вместо SECURITY_ATTRIBUTES)
-        PAGE_READWRITE,  # Права на чтение/запись
-        0,  # Размер старшего двойного слова
-        256,  # Размер младшего двойного слова
-        name_process  # Имя памяти
+        INVALID_HANDLE_VALUE,  #используем файл подкачки
+        None,  #атрибуты безопасности по умолчанию (None вместо SECURITY_ATTRIBUTES)
+        PAGE_READWRITE,  #права на чтение/запись
+        0,  #размер старшего двойного слова
+        256,  #размер младшего двойного слова
+        name_process  #имя памяти
     )
     if not hMemory:
         error_code = ctypes.get_last_error()
         print(f"Ошибка создания памяти '{name_process}': код {error_code}")
         return False
     else:
-        descriptors.append(hMemory)
+        _descriptors_.append(hMemory)
 
     try:
         #вызов MapViewOfFile
@@ -231,29 +229,37 @@ class mem():
                 return temp
 
     def give_all_shared_memory(self,t:bool)-> list:
-        return descriptors
-    def stop(self):
-        try:
-            return False
-        except Exception() as e:
-            print(e)
+        return _descriptors_
+    # def stop(self):
+    #     try:
+    #         return False
+    #     except Exception() as e:
+    #         print(e)
     def start(self):
+        global debug_mode
         try:
-            property = open("porperty.txt","r+")
-            if(property.read()!=None):
-                Exception
-            else:
-                global debug_mode
-                debug_mode = bool(property.read())
+            with open("property.txt", "r+") as f:
+                content = f.read()
+                if content:
+                    debug_mode = bool(content.strip())
+                    self.debug_mode = debug_mode
+                else:
+                    debug_mode = self.debug_mode
+                    f.write(str(debug_mode))
+
+        except FileNotFoundError:
+            print("У вас появился property.txt, если вам нужна более подробная сводка , измените значение в файле на True")
+            with open("property.txt", "w") as f:
+                f.write(str(False))
+
         except Exception as e:
-            print(f"Error:{e}")
-            property = open("porperty.txt", "w+")
-            property.write(True)
-            property.close()
-        else:
-            debug_mode == property.read()
-        if(debug_mode==True):
-            print("Режим отладки")
+            print(f"Error: {e}")
+            debug_mode = self.debug_mode
+
+        if debug_mode:
+            print("Режим отладки включен")
+
+        #остальной код метода start()
         self.DAT = convetrer_type(self.DAT)
         self.PROCESS = psutil.Process(os.getpid())
         self.MEM_INFO = self.PROCESS.memory_info()
@@ -300,11 +306,12 @@ class mem():
         except Exception as e:
             print(e)
     def claer(self):
-        print(f"Все дискрипторы:{descriptors}")
-        for i in descriptors:
-            ctypes.WinDLL('kernel32').CloseHandle(i)
-            print(f"{i} память была очищена")
+        print(f"Все дискрипторы:{_descriptors_}")
         ctypes.WinDLL('kernel32').UnmapViewOfFile(MAPVIEW)
+        for i in _descriptors_:
+            ctypes.WinDLL('kernel32').CloseHandle(i)
+            if(self.debug_mode==True):
+                print(f"{i} память была очищена")
     async def read(self,name=None):
         if(name==None):
             name=self.PROCESS_NAME
@@ -320,8 +327,8 @@ class mem():
     def stop(self):
         copy_vars.clear()
         memory.clear()
-    async def test(self):
-        print("Starts test:")
+    async def tests(self):
+        print("Запущены тесты:")
         self.write(True)
         self.write(1)
         self.write(-10000000)
@@ -374,17 +381,23 @@ class mem():
         self.write(float('inf'))
         self.write(float('-inf'))
         self.write(float('nan'))
-    def start_test(self):
-        a =asyncio.create_task(self.test())
+
+        for i in _descriptors_:
+            ctypes.WinDLL('kernel32').CloseHandle(i)
+            print(f"{i} память была очищена")
+    async def test(self,data):
+        self.write(data)
+        ctypes.WinDLL('kernel32').CloseHandle(-1)
+
 a =mem(True,None,None)
 a.start()
 # print(a.start.__doc__)
 # a.work()
-a.start_test()
+# asyncio.run(a.tests())
 
 
-while (True):
-    b= int(input("Введите 0 чтобы выйти :"))
-    if(b==0):
-        break
-a.claer()
+# while (True):
+#     b= int(input("Введите 0 чтобы выйти :"))
+#     if(b==0):
+#         break
+# a.claer()
