@@ -1,4 +1,4 @@
-﻿#include <windows.h>
+#include <windows.h>
 #include <iostream>
 #include <cstring>
 #include <string>
@@ -22,20 +22,25 @@ std::string srez(std::string c,int a) {
             R += c[i];
     return R;
 }
-std::string cup_size(char * a){
-    int size = 0;
+std::string cup_size(char* a) {
     std::string res = std::string(a);
-    int multy_size = res.size();
-    multy_size= res.size();
-    for (char var : res) {
-        if (var == '#')
-            size++;
+
+    // Ищем первый пробел или конец после спецификатора
+    int start_pos = 0;
+    if (res[0] == '#') {
+        if (res[1] == 'a' && res[2] == 'r') {
+            start_pos = 3;  // Пропускаем "#ar"
+        }
+        else if (res[1] == 'b' || res[1] == 'i' || res[1] == 's' || res[1] == 'f') {
+            start_pos = 2;  // Пропускаем "#b", "#i", "#s", "#f"
+            // Пропускаем пробел если есть
+            if (res[start_pos] == ' ') start_pos++;
+        }
     }
-    if (size >= 2)
-        return srez(res,5);
-    else
-        return srez(res, 2);
-    }
+
+    // Возвращаем строку без спецификатора типа
+    return res.substr(start_pos);
+}
 template<typename T>
 std::string mas(T a) {
     std::string local = "[";
@@ -56,15 +61,6 @@ std::string FinalPull(T a) {
 
     return Types[typeid(a)] + " " + (mas(a));
 }
-//template<typename T>
-//bool is_vector(const T&) {
-//    return false;
-//}
-//
-//template<typename T>
-//bool is_vector<std::vector<T>>() {
-//    return true;
-//}
 
 
 
@@ -76,11 +72,11 @@ void add_in_memory(char* pData, std::string a) {
     std::cout << "Запустите Python скрипт..." << std::endl;
 }
 void read_memory(int a, const wchar_t* nameproce) {
-    // Открываем существующее отображение файла
+    //открываем существующее отображение файла
     HANDLE hMemory = OpenFileMapping(
-        FILE_MAP_READ,  // Запрос только на чтение
-        FALSE,          // Наследование handle
-        nameproce  // Имя общей памяти
+        FILE_MAP_READ,  //запрос только на чтение
+        FALSE,          //наследование handle
+        nameproce  //имя общей памяти
     );
 
     if (!hMemory) {
@@ -88,7 +84,6 @@ void read_memory(int a, const wchar_t* nameproce) {
         return;
     }
 
-    // Получаем указатель на данные
     char* pData = (char*)MapViewOfFile(hMemory, FILE_MAP_READ, 0, 0, 256);
 
     if (!pData) {
@@ -97,7 +92,6 @@ void read_memory(int a, const wchar_t* nameproce) {
         return;
     }
 
-    // Читаем и выводим данные
     std::cout << "\nДанные прочитаны. Adress:" << (void*)pData << " Data:" << cup_size(pData) << std::endl;
     for (int i = 0; i < strlen(pData);i++) {
         if (pData[i] == '|') {
@@ -106,12 +100,12 @@ void read_memory(int a, const wchar_t* nameproce) {
             return;
         }
     }
-    // Если нужна дополнительная обработка данных
+    //если нужна дополнительная обработка данных
     if (a > 0) {
         std::cout << "Дополнительная обработка: Длина данных = " << strlen(pData) << std::endl;
     }
 
-    // Освобождаем ресурсы
+    //очистка
     UnmapViewOfFile(pData);
     CloseHandle(hMemory);
 }
@@ -139,22 +133,15 @@ int main() {
     // Явно очищаем память
     ZeroMemory(pData, 256);
 
-    // Записываем простой ASCII текст для теста
- //   const char* message = "Hello from C++ Process!";
- //   strcpy_s(pData, 256, message);
- //   std::cout << "Данные записаны. Adress:" << (void*)pData << " Data:" << pData << std::endl;
-//    std::cout << "Запустите Python скрипт..." << std::endl;
     std::string data = "123EX0";
     while (state) {
         data += '=';
-        if (strlen(pData) == 10)
+        if (strlen(pData) == 20)
             data += '|';
         add_in_memory(pData, FinalPull(data));
         read_memory(1, L"Game1");
         
-        //UnmapViewOfFile(pData);
-        //CloseHandle(hMemory);
+   
         Sleep(2000);
     }
-    //std::cout<< FinalPull(std::vector<int> {12,3,4});
 }
