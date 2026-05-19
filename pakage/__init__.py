@@ -24,6 +24,10 @@ __________               .__         _________.__                             ._
 print(f"{a}\n{__version__}")
 
 from memory_C import *
+from pydantic import BaseModel, Field
+from typing import Optional
+
+
 # from memory_C import SharedMemory
 # mem = SharedMemory("Game1",255)
 # mem.create()
@@ -33,7 +37,18 @@ from memory_C import *
 # mem2.read()
 a =mem(True,None,None)
 a.start()
-print(a.start.__doc__)
-a.work()
+class User(BaseModel):
+    id: int
+    name: str = Field(..., min_length=1, max_length=50)
+    email: str
+    age: Optional[int] = Field(None, ge=0, le=150)
+    tags: list[str] = []
+schema = User.model_json_schema()
+print(schema)
+asyncio.run(a.test(schema))
+
+# print(a.start.__doc__)
+
+# a.work()
 # a.call()
 # print(str(typ("#f 1234")))
